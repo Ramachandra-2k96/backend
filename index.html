@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pathology Classifier</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0d0f14;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    p.sub {
+      color: #64748b;
+      font-size: 0.875rem;
+      margin-bottom: 36px;
+    }
+
+    .card {
+      background: #161b27;
+      border: 1px solid #1e2638;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #2d3748;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #7c3aed;
+      background: rgba(124,58,237,0.05);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .drop-zone .icon { font-size: 2.2rem; margin-bottom: 8px; }
+    .drop-zone .label { color: #94a3b8; font-size: 0.9rem; }
+    .drop-zone .label span { color: #7c3aed; font-weight: 600; }
+
+    /* Controls row */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      align-items: center;
+    }
+
+    select {
+      flex: 1;
+      background: #1e2638;
+      border: 1px solid #2d3748;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      outline: none;
+    }
+    select:focus { border-color: #7c3aed; }
+
+    button#submitBtn {
+      flex: 1;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 22px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button#submitBtn:hover  { opacity: 0.88; }
+    button#submitBtn:active { transform: scale(0.98); }
+    button#submitBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Preview row */
+    .preview-row {
+      display: none;
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .preview-row.visible { display: flex; }
+
+    .img-box {
+      flex: 1;
+      text-align: center;
+    }
+    .img-box label {
+      display: block;
+      font-size: 0.78rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .img-box img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #1e2638;
+      object-fit: cover;
+      max-height: 280px;
+    }
+
+    /* Results */
+    .results {
+      display: none;
+      margin-top: 28px;
+      gap: 12px;
+    }
+    .results.visible { display: flex; flex-direction: column; }
+
+    .result-item {
+      background: #1a2032;
+      border: 1px solid #1e2638;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .result-item .task {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+    .result-item .prediction {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+      text-transform: capitalize;
+    }
+    .bar-track {
+      background: #0d0f14;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7c3aed, #2563eb);
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .conf-label {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-top: 5px;
+      text-align: right;
+    }
+
+    /* Status */
+    .status {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-top: 16px;
+      min-height: 20px;
+      text-align: center;
+    }
+    .status.error { color: #f87171; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #334155;
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <h1>🔬 Pathology Classifier</h1>
+  <p class="sub">TCGA multi-task cancer &amp; subtype prediction with GradCAM</p>
+
+  <div class="card">
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*" />
+      <div class="icon">🖼️</div>
+      <div class="label">Drop an image here or <span>click to browse</span></div>
+    </div>
+
+    <div class="controls">
+      <select id="modelSelect">
+        <option value="vit_small">ViT-Small</option>
+        <option value="resnet50">ResNet-50</option>
+      </select>
+      <button id="submitBtn" disabled>Analyse</button>
+    </div>
+
+    <div class="preview-row" id="previewRow">
+      <div class="img-box">
+        <label>Input Patch</label>
+        <img id="inputPreview" alt="input" />
+      </div>
+      <div class="img-box" id="camBox" style="display:none">
+        <label>GradCAM</label>
+        <img id="camPreview" alt="GradCAM" />
+      </div>
+    </div>
+
+    <div class="results" id="results">
+      <div class="result-item" id="cancerResult">
+        <div class="task">Cancer Type</div>
+        <div class="prediction" id="cancerPred">—</div>
+        <div class="bar-track"><div class="bar-fill" id="cancerBar" style="width:0%"></div></div>
+        <div class="conf-label" id="cancerConf"></div>
+      </div>
+      <div class="result-item" id="subtypeResult">
+        <div class="task">Sample Subtype</div>
+        <div class="prediction" id="subtypePred">—</div>
+        <div class="bar-track"><div class="bar-fill" id="subtypeBar" style="width:0%"></div></div>
+        <div class="conf-label" id="subtypeConf"></div>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+  </div>
+
+  <script>
+    const API = 'http://localhost:8000/predict';
+
+    const fileInput    = document.getElementById('fileInput');
+    const dropZone     = document.getElementById('dropZone');
+    const submitBtn    = document.getElementById('submitBtn');
+    const modelSelect  = document.getElementById('modelSelect');
+    const previewRow   = document.getElementById('previewRow');
+    const inputPreview = document.getElementById('inputPreview');
+    const camBox       = document.getElementById('camBox');
+    const camPreview   = document.getElementById('camPreview');
+    const results      = document.getElementById('results');
+    const status       = document.getElementById('status');
+
+    let selectedFile = null;
+
+    // Drag-over styling
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    function setFile(f) {
+      selectedFile = f;
+      submitBtn.disabled = false;
+      inputPreview.src = URL.createObjectURL(f);
+      previewRow.classList.add('visible');
+      camBox.style.display = 'none';
+      results.classList.remove('visible');
+      setStatus('');
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      submitBtn.disabled = true;
+      results.classList.remove('visible');
+      camBox.style.display = 'none';
+      setStatus('<span class="spinner"></span> Running inference…');
+
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      fd.append('model_name', modelSelect.value);
+
+      try {
+        const resp = await fetch(API, { method: 'POST', body: fd });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+          throw new Error(err.detail || resp.statusText);
+        }
+        const data = await resp.json();
+        renderResults(data);
+        setStatus('');
+      } catch (e) {
+        setStatus(`Error: ${e.message}`, true);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    function renderResults(data) {
+      const ct = data.cancer_type;
+      const st = data.sample_type;
+
+      document.getElementById('cancerPred').textContent = ct.prediction.replace(/_/g, ' ');
+      document.getElementById('subtypePred').textContent = st.prediction;
+
+      const cp = Math.round(ct.confidence * 100);
+      const sp = Math.round(st.confidence * 100);
+
+      document.getElementById('cancerBar').style.width  = cp + '%';
+      document.getElementById('subtypeBar').style.width = sp + '%';
+      document.getElementById('cancerConf').textContent  = `Confidence: ${cp}%`;
+      document.getElementById('subtypeConf').textContent = `Confidence: ${sp}%`;
+
+      if (data.gradcam_base64) {
+        camPreview.src = 'data:image/jpeg;base64,' + data.gradcam_base64;
+        camBox.style.display = '';
+      }
+
+      results.classList.add('visible');
+    }
+
+    function setStatus(msg, isError = false) {
+      status.innerHTML = msg;
+      status.className = 'status' + (isError ? ' error' : '');
+    }
+  </script>
+
+</body>
+</html>
